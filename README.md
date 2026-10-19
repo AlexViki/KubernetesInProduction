@@ -9,3 +9,5 @@ This repository contains practical labs, manifests, and notes for the **Kubernet
 - **Security & Multi-tenancy:** Isolation with Namespaces, ResourceQuotas, RBAC, and NetworkPolicies.
 - **Resilience & DR:** High Availability designs and disaster recovery site mirroring.
 - **Core Ecosystem:** GitOps, Service Mesh, Observability, and Platform Engineering best practices.
+
+
