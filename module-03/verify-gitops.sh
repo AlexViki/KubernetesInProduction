@@ -49,6 +49,16 @@ KYVERNO_HEALTH="$(kubectl get application kyverno -n argocd -o jsonpath='{.statu
 assert_eq "ArgoCD Application 'kyverno' має статус Synced" "$KYVERNO_SYNC" "Synced"
 assert_eq "ArgoCD Application 'kyverno' має статус Healthy" "$KYVERNO_HEALTH" "Healthy"
 
+TENANTS_SYNC="$(kubectl get application lab-tenants -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")"
+TENANTS_HEALTH="$(kubectl get application lab-tenants -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "")"
+assert_eq "ArgoCD Application 'lab-tenants' має статус Synced" "$TENANTS_SYNC" "Synced"
+assert_eq "ArgoCD Application 'lab-tenants' має статус Healthy" "$TENANTS_HEALTH" "Healthy"
+
+ROOT_SYNC="$(kubectl get application platform-root -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")"
+ROOT_HEALTH="$(kubectl get application platform-root -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "")"
+assert_eq "ArgoCD Application 'platform-root' має статус Synced" "$ROOT_SYNC" "Synced"
+assert_eq "ArgoCD Application 'platform-root' має статус Healthy" "$ROOT_HEALTH" "Healthy"
+
 echo ""
 echo "--- 3. Перевірка параметризації Helm чарту політик (helm lint & template) ---"
 if helm lint "$SCRIPT_DIR/charts/lab-tenants" >/dev/null 2>&1; then
