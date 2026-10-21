@@ -1,18 +1,21 @@
-{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.auditReadOnlyRootFilesystem }}
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.requireReadOnlyRootfs.enabled }}
+{{- $cfg := .Values.kyvernoPolicies.requireReadOnlyRootfs }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: require-ro-rootfs
+  name: {{ $cfg.name }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
   annotations:
-    policies.kyverno.io/title: Require Read-Only Root Filesystem (Audit)
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    policies.kyverno.io/title: Require Read-Only Root Filesystem
     policies.kyverno.io/category: Pod Security Standards (Restricted)
-    policies.kyverno.io/severity: medium
+    policies.kyverno.io/severity: {{ $cfg.severity }}
     policies.kyverno.io/subject: Pod
     policies.kyverno.io/description: >-
-      Перевіряє, що всі контейнери у Поді мають securityContext.readOnlyRootFilesystem: true.
-      Працює в режимі Audit (не блокує створення подів, але створює записи у PolicyReport).
+      Перевіряє, що контейнери у Поді мають securityContext.readOnlyRootFilesystem: true.
 spec:
-  background: true
+  background: {{ $cfg.background }}
   rules:
     - name: validate-readOnlyRootFilesystem
       match:
@@ -20,18 +23,29 @@ spec:
           - resources:
               kinds:
                 - Pod
+      {{- if $cfg.excludeNamespaces }}
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                {{- toYaml $cfg.excludeNamespaces | nindent 16 }}
+      {{- end }}
       validate:
-        failureAction: Audit
-        message: "Коренева файлова система контейнера має бути в режимі тільки для читання (securityContext.readOnlyRootFilesystem: true)."
+        failureAction: {{ $cfg.failureAction }}
+        message: {{ $cfg.message | quote }}
         pattern:
           spec:
             containers:
               - securityContext:
                   readOnlyRootFilesystem: true
+            {{- if $cfg.checkInitContainers }}
             =(initContainers):
               - securityContext:
                   readOnlyRootFilesystem: true
+            {{- end }}
+            {{- if $cfg.checkEphemeralContainers }}
             =(ephemeralContainers):
               - securityContext:
                   readOnlyRootFilesystem: true
+            {{- end }}
 {{- end }}

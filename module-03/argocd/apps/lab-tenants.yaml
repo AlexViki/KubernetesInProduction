@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lab-tenants
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/AlexViki/KubernetesInProduction.git
+    targetRevision: feat/module-03-platform-engineering
+    path: module-03/charts/lab-tenants
+    helm:
+      releaseName: lab-tenants
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  ignoreDifferences:
+    - group: kyverno.io
+      kind: ClusterPolicy
+      jqPathExpressions:
+        - .spec.rules[]?.exclude?.any[]?.resources?.namespaces
+        - .spec.rules[]?.validate?.PodSecurity
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

@@ -1,0 +1,69 @@
+# ==============================================================================
+# 1. Налаштування Ментора та Студентів (Multi-Tenancy)
+# ==============================================================================
+environment: lab
+
+mentor:
+  namespace: mentor
+  serviceAccount: mentor
+  roleLabel: mentor
+
+students:
+  - name: student01
+  - name: student02
+    extraReadOnlyNamespaces:
+      - student01
+      - default
+  - name: student03
+
+# ==============================================================================
+# 2. Налаштування RBAC ClusterRoles
+# ==============================================================================
+rbac:
+  rwClusterRoleName: lab-namespace-rw
+  roClusterRoleName: lab-namespace-ro
+
+# ==============================================================================
+# 3. Параметризовані політики Kyverno (Policy as Code via Helm)
+# ==============================================================================
+kyvernoPolicies:
+  enabled: true
+
+  # 3.1. Generate Policy: автоматичне створення SA, Token Secret та RoleBindings
+  generateTenantRbac:
+    enabled: true
+    name: generate-tenant-rbac
+    generateExisting: true
+    synchronizeRbac: true
+    synchronizeTokenSecret: false
+    excludedServiceAccounts:
+      - default
+
+  # 3.2. Validate Policy: перевірка readOnlyRootFilesystem
+  requireReadOnlyRootfs:
+    enabled: true
+    name: require-ro-rootfs
+    failureAction: Audit        # Можливі значення: Audit або Enforce
+    background: true
+    severity: medium
+    checkInitContainers: true
+    checkEphemeralContainers: true
+    message: "Коренева файлова система контейнера має бути в режимі тільки для читання (securityContext.readOnlyRootFilesystem: true)."
+    excludeNamespaces:
+      - kube-system
+      - kyverno
+      - argocd
+
+  # 3.3. Mutate Policy: автоматичне додавання лейбла 'person' залежно від ролі неймспейсу
+  mutatePersonLabel:
+    enabled: true
+    name: add-person-label
+    background: false
+    labelKey: person
+    rules:
+      - name: add-person-student
+        namespaceRole: student
+        labelValue: student
+      - name: add-person-mentor
+        namespaceRole: mentor
+        labelValue: mentor

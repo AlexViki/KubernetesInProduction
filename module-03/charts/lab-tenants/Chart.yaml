@@ -1,0 +1,13 @@
+apiVersion: v2
+name: lab-tenants
+description: Unified GitOps-ready Helm chart for managing multi-tenant namespaces, RBAC, and parameterized Kyverno policies
+type: application
+version: 0.2.0
+appVersion: "1.1.0"
+keywords:
+  - kubernetes
+  - multi-tenancy
+  - rbac
+  - kyverno
+  - policy-as-code
+  - gitops

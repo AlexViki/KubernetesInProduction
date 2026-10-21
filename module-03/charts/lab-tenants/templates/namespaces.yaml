@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.mentor.namespace }}
+  labels:
+    role: {{ .Values.mentor.roleLabel }}
+    environment: {{ .Values.environment }}
+    {{- include "lab-tenants.labels" . | nindent 4 }}
+{{- range $student := .Values.students }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $student.name }}
+  labels:
+    role: student
+    student: {{ $student.name }}
+    environment: {{ $.Values.environment }}
+    {{- include "lab-tenants.labels" $ | nindent 4 }}
+{{- end }}

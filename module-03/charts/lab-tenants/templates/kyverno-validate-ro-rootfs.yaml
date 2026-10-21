@@ -1,0 +1,51 @@
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.requireReadOnlyRootfs.enabled }}
+{{- $cfg := .Values.kyvernoPolicies.requireReadOnlyRootfs }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $cfg.name }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    policies.kyverno.io/title: Require Read-Only Root Filesystem
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    policies.kyverno.io/severity: {{ $cfg.severity }}
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Перевіряє, що контейнери у Поді мають securityContext.readOnlyRootFilesystem: true.
+spec:
+  background: {{ $cfg.background }}
+  rules:
+    - name: validate-readOnlyRootFilesystem
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      {{- if $cfg.excludeNamespaces }}
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                {{- toYaml $cfg.excludeNamespaces | nindent 16 }}
+      {{- end }}
+      validate:
+        failureAction: {{ $cfg.failureAction }}
+        message: {{ $cfg.message | quote }}
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+            {{- if $cfg.checkInitContainers }}
+            =(initContainers):
+              - securityContext:
+                  readOnlyRootFilesystem: true
+            {{- end }}
+            {{- if $cfg.checkEphemeralContainers }}
+            =(ephemeralContainers):
+              - securityContext:
+                  readOnlyRootFilesystem: true
+            {{- end }}
+{{- end }}

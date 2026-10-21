@@ -1,20 +1,21 @@
-{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.autoGenerateRbac }}
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.generateTenantRbac.enabled }}
+{{- $cfg := .Values.kyvernoPolicies.generateTenantRbac }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: generate-tenant-rbac
+  name: {{ $cfg.name }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
   annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
     policies.kyverno.io/title: Auto-Generate Tenant RBAC and Credentials
     policies.kyverno.io/category: Multi-Tenancy
     policies.kyverno.io/description: >-
       Автоматично створює ServiceAccount, Secret (service-account-token) та RoleBindings
-      для кожного неймспейсу з лейблом role=student або role=mentor.
+      для кожного неймспейсу з лейблом role=student або role={{ .Values.mentor.roleLabel }}.
 spec:
-  generateExisting: true
+  generateExisting: {{ $cfg.generateExisting }}
   rules:
-    # --------------------------------------------------------------------------
-    # Правила для неймспейсів студентів (role=student)
-    # --------------------------------------------------------------------------
     - name: generate-student-sa
       match:
         any:
@@ -24,7 +25,7 @@ spec:
                 matchLabels:
                   role: student
       generate:
-        synchronize: true
+        synchronize: {{ $cfg.synchronizeRbac }}
         apiVersion: v1
         kind: ServiceAccount
         name: "{{`{{ request.object.metadata.name }}`}}"
@@ -41,9 +42,9 @@ spec:
       exclude:
         any:
           - resources:
-              names: ["default"]
+              names: {{ $cfg.excludedServiceAccounts | toYaml | nindent 16 }}
       generate:
-        synchronize: false
+        synchronize: {{ $cfg.synchronizeTokenSecret }}
         apiVersion: v1
         kind: Secret
         name: "{{`{{ request.object.metadata.name }}`}}-token"
@@ -63,7 +64,7 @@ spec:
                 matchLabels:
                   role: student
       generate:
-        synchronize: true
+        synchronize: {{ $cfg.synchronizeRbac }}
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
         name: "{{`{{ request.object.metadata.name }}`}}-rw-in-{{`{{ request.object.metadata.name }}`}}"
@@ -75,7 +76,7 @@ spec:
               namespace: "{{`{{ request.object.metadata.name }}`}}"
           roleRef:
             kind: ClusterRole
-            name: lab-namespace-rw
+            name: {{ .Values.rbac.rwClusterRoleName }}
             apiGroup: rbac.authorization.k8s.io
 
     - name: generate-mentor-rw-in-student-ns
@@ -87,7 +88,7 @@ spec:
                 matchLabels:
                   role: student
       generate:
-        synchronize: true
+        synchronize: {{ $cfg.synchronizeRbac }}
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
         name: "mentor-rw-in-{{`{{ request.object.metadata.name }}`}}"
@@ -99,12 +100,9 @@ spec:
               namespace: {{ .Values.mentor.namespace }}
           roleRef:
             kind: ClusterRole
-            name: lab-namespace-rw
+            name: {{ .Values.rbac.rwClusterRoleName }}
             apiGroup: rbac.authorization.k8s.io
 
-    # --------------------------------------------------------------------------
-    # Правила для неймспейсу ментора (role=mentor)
-    # --------------------------------------------------------------------------
     - name: generate-mentor-sa
       match:
         any:
@@ -112,9 +110,9 @@ spec:
               kinds: ["Namespace"]
               selector:
                 matchLabels:
-                  role: mentor
+                  role: {{ .Values.mentor.roleLabel }}
       generate:
-        synchronize: true
+        synchronize: {{ $cfg.synchronizeRbac }}
         apiVersion: v1
         kind: ServiceAccount
         name: "{{`{{ request.object.metadata.name }}`}}"
@@ -127,13 +125,13 @@ spec:
               kinds: ["ServiceAccount"]
               namespaceSelector:
                 matchLabels:
-                  role: mentor
+                  role: {{ .Values.mentor.roleLabel }}
       exclude:
         any:
           - resources:
-              names: ["default"]
+              names: {{ $cfg.excludedServiceAccounts | toYaml | nindent 16 }}
       generate:
-        synchronize: false
+        synchronize: {{ $cfg.synchronizeTokenSecret }}
         apiVersion: v1
         kind: Secret
         name: "{{`{{ request.object.metadata.name }}`}}-token"
@@ -151,9 +149,9 @@ spec:
               kinds: ["Namespace"]
               selector:
                 matchLabels:
-                  role: mentor
+                  role: {{ .Values.mentor.roleLabel }}
       generate:
-        synchronize: true
+        synchronize: {{ $cfg.synchronizeRbac }}
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
         name: "{{`{{ request.object.metadata.name }}`}}-rw-in-{{`{{ request.object.metadata.name }}`}}"
@@ -165,6 +163,6 @@ spec:
               namespace: "{{`{{ request.object.metadata.name }}`}}"
           roleRef:
             kind: ClusterRole
-            name: lab-namespace-rw
+            name: {{ .Values.rbac.rwClusterRoleName }}
             apiGroup: rbac.authorization.k8s.io
 {{- end }}

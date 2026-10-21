@@ -1,20 +1,23 @@
-{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.mutatePersonLabel }}
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.mutatePersonLabel.enabled }}
+{{- $cfg := .Values.kyvernoPolicies.mutatePersonLabel }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: add-person-label
+  name: {{ $cfg.name }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
   annotations:
-    policies.kyverno.io/title: Add person Label to Pods in Mentor and Student Namespaces
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    policies.kyverno.io/title: Add {{ $cfg.labelKey }} Label to Pods by Namespace Role
     policies.kyverno.io/category: Multi-Tenancy
     policies.kyverno.io/subject: Pod
     policies.kyverno.io/description: >-
-      Додає лейбл person="student" у поди в студентських неймспейсах (role=student)
-      та person="mentor" у поди в неймспейсі ментора (role=mentor).
-      Поди в усіх інших неймспейсах не змінюються.
+      Додає лейбл {{ $cfg.labelKey }} у поди залежно від лейбла role на неймспейсі.
 spec:
-  background: false
+  background: {{ $cfg.background }}
   rules:
-    - name: add-person-student
+    {{- range $rule := $cfg.rules }}
+    - name: {{ $rule.name }}
       match:
         any:
           - resources:
@@ -22,25 +25,11 @@ spec:
                 - Pod
               namespaceSelector:
                 matchLabels:
-                  role: student
+                  role: {{ $rule.namespaceRole }}
       mutate:
         patchStrategicMerge:
           metadata:
             labels:
-              person: student
-
-    - name: add-person-mentor
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-              namespaceSelector:
-                matchLabels:
-                  role: mentor
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              person: mentor
+              {{ $cfg.labelKey }}: {{ $rule.labelValue | quote }}
+    {{- end }}
 {{- end }}

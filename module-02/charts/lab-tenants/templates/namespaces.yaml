@@ -3,18 +3,18 @@ kind: Namespace
 metadata:
   name: {{ .Values.mentor.namespace }}
   labels:
-    role: mentor
-    environment: lab
-    app.kubernetes.io/managed-by: {{ $.Release.Service }}
-{{- range .Values.students }}
+    role: {{ .Values.mentor.roleLabel }}
+    environment: {{ .Values.environment }}
+    {{- include "lab-tenants.labels" . | nindent 4 }}
+{{- range $student := .Values.students }}
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .name }}
+  name: {{ $student.name }}
   labels:
     role: student
-    student: {{ .name }}
-    environment: lab
-    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    student: {{ $student.name }}
+    environment: {{ $.Values.environment }}
+    {{- include "lab-tenants.labels" $ | nindent 4 }}
 {{- end }}

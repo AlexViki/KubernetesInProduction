@@ -1,0 +1,18 @@
+# Базові налаштування ArgoCD для k3s кластера
+global:
+  domain: argocd.local
+
+configs:
+  params:
+    # Дозволяє підключення до UI без TLS-термінації на самому pod'і (зручно для port-forward та Traefik Ingress)
+    server.insecure: true
+  cm:
+    # Використовуємо анотацію замість лейбла app.kubernetes.io/instance,
+    # щоб уникнути конфліктів із чартами (наприклад, Kyverno)
+    application.resourceTrackingMethod: annotation
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false

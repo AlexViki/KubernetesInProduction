@@ -1,10 +1,9 @@
-# ==============================================================================
-# 1. Базові ClusterRole для RW та RO доступу в межах неймспейсів (без прав Cluster Admin)
-# ==============================================================================
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: lab-namespace-rw
+  name: {{ .Values.rbac.rwClusterRoleName }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources:
@@ -45,7 +44,9 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: lab-namespace-ro
+  name: {{ .Values.rbac.roClusterRoleName }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources:
@@ -80,10 +81,6 @@ rules:
       - horizontalpodautoscalers
     verbs: ["get", "list", "watch"]
 ---
-# ==============================================================================
-# 2. Додаткові права для Kyverno Background & Admission Controllers,
-#    щоб Kyverno міг генерувати ServiceAccounts, Secrets та RoleBindings (bind lab-namespace-*)
-# ==============================================================================
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -91,6 +88,7 @@ metadata:
   labels:
     rbac.kyverno.io/aggregate-to-background-controller: "true"
     rbac.kyverno.io/aggregate-to-admission-controller: "true"
+    {{- include "lab-tenants.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["serviceaccounts", "secrets"]
@@ -100,26 +98,27 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
-    resourceNames: ["lab-namespace-rw", "lab-namespace-ro"]
+    resourceNames:
+      - {{ .Values.rbac.rwClusterRoleName | quote }}
+      - {{ .Values.rbac.roClusterRoleName | quote }}
     verbs: ["bind", "escalate", "get", "list", "watch"]
 {{- range $student := .Values.students }}
   {{- range $roNs := $student.extraReadOnlyNamespaces }}
 ---
-# ==============================================================================
-# 3. Додаткові RO RoleBindings (наприклад, для student02 у student01 та default)
-# ==============================================================================
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ $student.name }}-ro-in-{{ $roNs }}
   namespace: {{ $roNs }}
+  labels:
+    {{- include "lab-tenants.labels" $ | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ $student.name }}
     namespace: {{ $student.name }}
 roleRef:
   kind: ClusterRole
-  name: lab-namespace-ro
+  name: {{ $.Values.rbac.roClusterRoleName }}
   apiGroup: rbac.authorization.k8s.io
   {{- end }}
 {{- end }}
