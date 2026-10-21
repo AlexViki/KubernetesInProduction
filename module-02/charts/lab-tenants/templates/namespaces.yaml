@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.mentor.namespace }}
+  labels:
+    role: mentor
+    environment: lab
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+{{- range .Values.students }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .name }}
+  labels:
+    role: student
+    student: {{ .name }}
+    environment: lab
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+{{- end }}

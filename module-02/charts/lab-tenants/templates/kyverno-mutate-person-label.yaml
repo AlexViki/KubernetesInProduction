@@ -1,0 +1,46 @@
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.mutatePersonLabel }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-person-label
+  annotations:
+    policies.kyverno.io/title: Add person Label to Pods in Mentor and Student Namespaces
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Додає лейбл person="student" у поди в студентських неймспейсах (role=student)
+      та person="mentor" у поди в неймспейсі ментора (role=mentor).
+      Поди в усіх інших неймспейсах не змінюються.
+spec:
+  background: false
+  rules:
+    - name: add-person-student
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  role: student
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              person: student
+
+    - name: add-person-mentor
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  role: mentor
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              person: mentor
+{{- end }}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: lab-tenants
+description: Helm chart for managing multi-tenant Kubernetes lab namespaces, RBAC, and Kyverno policies (Generate, Validate, Mutate)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

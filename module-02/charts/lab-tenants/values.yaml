@@ -1,0 +1,23 @@
+mentor:
+  namespace: mentor
+  serviceAccount: mentor
+
+# Динамічний список студентів.
+# Щоб додати student04, student05 тощо — просто додайте новий елемент у список students.
+# Kyverno автоматично згенерує ServiceAccount, Secret (токен) та RW RoleBinding для студента і ментора!
+students:
+  - name: student01
+  - name: student02
+    extraReadOnlyNamespaces:
+      - student01
+      - default
+  - name: student03
+
+kyvernoPolicies:
+  enabled: true
+  # 1. Generate policy: автоматично створює SA, токен та RoleBindings у кожному новому неймспейсі з role=student або role=mentor
+  autoGenerateRbac: true
+  # 2. Validate policy: перевірка readOnlyRootFilesystem: true в режимі Audit
+  auditReadOnlyRootFilesystem: true
+  # 3. Mutate policy: автоматичне додавання лейбла person=student або person=mentor на поди
+  mutatePersonLabel: true
