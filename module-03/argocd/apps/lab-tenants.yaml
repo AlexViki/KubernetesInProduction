@@ -24,8 +24,14 @@ spec:
     - group: kyverno.io
       kind: ClusterPolicy
       jqPathExpressions:
-        - .spec.rules[]?.exclude?.any[]?.resources?.namespaces
-        - .spec.rules[]?.validate?.PodSecurity
+        - .spec.admission
+        - .spec.emitWarning
+        - .spec.rules[]?.skipBackgroundRequests
+        - .spec.rules[]?.match?.resources
+        - .spec.rules[]?.exclude?.resources
+        - .spec.rules[]?.generate?.clone
+        - .spec.rules[]?.generate?.cloneList
+        - .spec.rules[]?.validate?.allowExistingViolations
   syncPolicy:
     automated:
       prune: true
