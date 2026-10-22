@@ -11,8 +11,8 @@ spec:
   project: default
   source:
     repoURL: https://github.com/AlexViki/KubernetesInProduction.git
-    targetRevision: feat/module-03-platform-engineering
-    path: module-03/charts/lab-tenants
+    targetRevision: feat/module-04-service-mesh
+    path: module-04/charts/lab-tenants
     helm:
       releaseName: lab-tenants
       valueFiles:

@@ -53,6 +53,7 @@ kyvernoPolicies:
       - kube-system
       - kyverno
       - argocd
+      - istio-system
 
   # 3.3. Mutate Policy: автоматичне додавання лейбла 'person' залежно від ролі неймспейсу
   mutatePersonLabel:
@@ -67,3 +68,13 @@ kyvernoPolicies:
       - name: add-person-mentor
         namespaceRole: mentor
         labelValue: mentor
+
+  # 3.4. Mutate Policy (Module 04): запуск усіх подів із лейблом person=student з istio-sidecar контейнером
+  injectIstioSidecar:
+    enabled: true
+    name: inject-istio-sidecar-for-students
+    background: false
+    matchLabelKey: person
+    matchLabelValue: student
+    sidecarInjectLabelKey: sidecar.istio.io/inject
+    sidecarInjectLabelValue: "true"

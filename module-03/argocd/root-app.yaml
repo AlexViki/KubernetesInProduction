@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/AlexViki/KubernetesInProduction.git
-    targetRevision: feat/module-03-platform-engineering
+    targetRevision: feat/module-04-service-mesh
     path: module-03/argocd/apps
   destination:
     server: https://kubernetes.default.svc

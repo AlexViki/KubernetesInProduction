@@ -1,0 +1,168 @@
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.generateTenantRbac.enabled }}
+{{- $cfg := .Values.kyvernoPolicies.generateTenantRbac }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $cfg.name }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    policies.kyverno.io/title: Auto-Generate Tenant RBAC and Credentials
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/description: >-
+      Автоматично створює ServiceAccount, Secret (service-account-token) та RoleBindings
+      для кожного неймспейсу з лейблом role=student або role={{ .Values.mentor.roleLabel }}.
+spec:
+  generateExisting: {{ $cfg.generateExisting }}
+  rules:
+    - name: generate-student-sa
+      match:
+        any:
+          - resources:
+              kinds: ["Namespace"]
+              selector:
+                matchLabels:
+                  role: student
+      generate:
+        synchronize: {{ $cfg.synchronizeRbac }}
+        apiVersion: v1
+        kind: ServiceAccount
+        name: "{{`{{ request.object.metadata.name }}`}}"
+        namespace: "{{`{{ request.object.metadata.name }}`}}"
+
+    - name: generate-student-token-secret
+      match:
+        any:
+          - resources:
+              kinds: ["ServiceAccount"]
+              namespaceSelector:
+                matchLabels:
+                  role: student
+      exclude:
+        any:
+          - resources:
+              names: {{ $cfg.excludedServiceAccounts | toYaml | nindent 16 }}
+      generate:
+        synchronize: {{ $cfg.synchronizeTokenSecret }}
+        apiVersion: v1
+        kind: Secret
+        name: "{{`{{ request.object.metadata.name }}`}}-token"
+        namespace: "{{`{{ request.object.metadata.namespace }}`}}"
+        data:
+          metadata:
+            annotations:
+              kubernetes.io/service-account.name: "{{`{{ request.object.metadata.name }}`}}"
+          type: kubernetes.io/service-account-token
+
+    - name: generate-student-rw-rolebinding
+      match:
+        any:
+          - resources:
+              kinds: ["Namespace"]
+              selector:
+                matchLabels:
+                  role: student
+      generate:
+        synchronize: {{ $cfg.synchronizeRbac }}
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        name: "{{`{{ request.object.metadata.name }}`}}-rw-in-{{`{{ request.object.metadata.name }}`}}"
+        namespace: "{{`{{ request.object.metadata.name }}`}}"
+        data:
+          subjects:
+            - kind: ServiceAccount
+              name: "{{`{{ request.object.metadata.name }}`}}"
+              namespace: "{{`{{ request.object.metadata.name }}`}}"
+          roleRef:
+            kind: ClusterRole
+            name: {{ .Values.rbac.rwClusterRoleName }}
+            apiGroup: rbac.authorization.k8s.io
+
+    - name: generate-mentor-rw-in-student-ns
+      match:
+        any:
+          - resources:
+              kinds: ["Namespace"]
+              selector:
+                matchLabels:
+                  role: student
+      generate:
+        synchronize: {{ $cfg.synchronizeRbac }}
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        name: "mentor-rw-in-{{`{{ request.object.metadata.name }}`}}"
+        namespace: "{{`{{ request.object.metadata.name }}`}}"
+        data:
+          subjects:
+            - kind: ServiceAccount
+              name: {{ .Values.mentor.serviceAccount }}
+              namespace: {{ .Values.mentor.namespace }}
+          roleRef:
+            kind: ClusterRole
+            name: {{ .Values.rbac.rwClusterRoleName }}
+            apiGroup: rbac.authorization.k8s.io
+
+    - name: generate-mentor-sa
+      match:
+        any:
+          - resources:
+              kinds: ["Namespace"]
+              selector:
+                matchLabels:
+                  role: {{ .Values.mentor.roleLabel }}
+      generate:
+        synchronize: {{ $cfg.synchronizeRbac }}
+        apiVersion: v1
+        kind: ServiceAccount
+        name: "{{`{{ request.object.metadata.name }}`}}"
+        namespace: "{{`{{ request.object.metadata.name }}`}}"
+
+    - name: generate-mentor-token-secret
+      match:
+        any:
+          - resources:
+              kinds: ["ServiceAccount"]
+              namespaceSelector:
+                matchLabels:
+                  role: {{ .Values.mentor.roleLabel }}
+      exclude:
+        any:
+          - resources:
+              names: {{ $cfg.excludedServiceAccounts | toYaml | nindent 16 }}
+      generate:
+        synchronize: {{ $cfg.synchronizeTokenSecret }}
+        apiVersion: v1
+        kind: Secret
+        name: "{{`{{ request.object.metadata.name }}`}}-token"
+        namespace: "{{`{{ request.object.metadata.namespace }}`}}"
+        data:
+          metadata:
+            annotations:
+              kubernetes.io/service-account.name: "{{`{{ request.object.metadata.name }}`}}"
+          type: kubernetes.io/service-account-token
+
+    - name: generate-mentor-rw-rolebinding
+      match:
+        any:
+          - resources:
+              kinds: ["Namespace"]
+              selector:
+                matchLabels:
+                  role: {{ .Values.mentor.roleLabel }}
+      generate:
+        synchronize: {{ $cfg.synchronizeRbac }}
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        name: "{{`{{ request.object.metadata.name }}`}}-rw-in-{{`{{ request.object.metadata.name }}`}}"
+        namespace: "{{`{{ request.object.metadata.name }}`}}"
+        data:
+          subjects:
+            - kind: ServiceAccount
+              name: "{{`{{ request.object.metadata.name }}`}}"
+              namespace: "{{`{{ request.object.metadata.name }}`}}"
+          roleRef:
+            kind: ClusterRole
+            name: {{ .Values.rbac.rwClusterRoleName }}
+            apiGroup: rbac.authorization.k8s.io
+{{- end }}

@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istiod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: istiod
+    targetRevision: 1.30.6
+    helm:
+      releaseName: istiod
+      valuesObject:
+        sidecarInjectorWebhook:
+          # Дозволяємо виклик вебхука Istio для неймспейсів кластера, але за замовчуванням
+          # defaultInjectionPolicy=disabled (жоден под не отримує sidecar без явного дозволу).
+          # Тільки поди, яким Kyverno додає лейбл sidecar.istio.io/inject: "true"
+          # (на основі лейбла person: student), отримують istio-proxy!
+          enableNamespacesByDefault: true
+          defaultInjectionPolicy: disabled
+          reinvocationPolicy: IfNeeded
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+        - .webhooks[]?.failurePolicy
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+        - .webhooks[]?.failurePolicy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

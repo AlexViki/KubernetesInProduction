@@ -1,0 +1,35 @@
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.mutatePersonLabel.enabled }}
+{{- $cfg := .Values.kyvernoPolicies.mutatePersonLabel }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $cfg.name }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    policies.kyverno.io/title: Add {{ $cfg.labelKey }} Label to Pods by Namespace Role
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Додає лейбл {{ $cfg.labelKey }} у поди залежно від лейбла role на неймспейсі.
+spec:
+  background: {{ $cfg.background }}
+  rules:
+    {{- range $rule := $cfg.rules }}
+    - name: {{ $rule.name }}
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  role: {{ $rule.namespaceRole }}
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              {{ $cfg.labelKey }}: {{ $rule.labelValue | quote }}
+    {{- end }}
+{{- end }}

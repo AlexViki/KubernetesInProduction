@@ -1,0 +1,35 @@
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.injectIstioSidecar.enabled }}
+{{- $cfg := .Values.kyvernoPolicies.injectIstioSidecar }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $cfg.name }}
+  labels:
+    {{- include "lab-tenants.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    policies.kyverno.io/title: Inject Istio Sidecar for Pods with {{ $cfg.matchLabelKey }}={{ $cfg.matchLabelValue }}
+    policies.kyverno.io/category: Service Mesh
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Автоматично додає лейбл {{ $cfg.sidecarInjectLabelKey }}: "{{ $cfg.sidecarInjectLabelValue }}"
+      на всі поди з лейблом {{ $cfg.matchLabelKey }}: "{{ $cfg.matchLabelValue }}",
+      щоб Istio MutatingWebhook гарантовано інжектив istio-proxy sidecar контейнер.
+spec:
+  background: {{ $cfg.background }}
+  rules:
+    - name: enable-istio-sidecar-on-student-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              selector:
+                matchLabels:
+                  {{ $cfg.matchLabelKey }}: {{ $cfg.matchLabelValue | quote }}
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              {{ $cfg.sidecarInjectLabelKey | quote }}: {{ $cfg.sidecarInjectLabelValue | quote }}
+{{- end }}
