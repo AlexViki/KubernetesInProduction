@@ -22,10 +22,13 @@ spec:
         sidecarInjectorWebhook:
           # Дозволяємо виклик вебхука Istio для неймспейсів кластера (enableNamespacesByDefault: true),
           # але вимикаємо автоматичну інжекцію (global.proxy.autoInject: disabled -> policy: disabled).
-          # Таким чином жоден под у кластері НЕ отримує sidecar, окрім тих подів,
+          # alwaysInjectSelector гарантує інжекцію навіть при policy: disabled для подів,
           # яким Kyverno додає лейбл sidecar.istio.io/inject: "true" на основі person: student!
           enableNamespacesByDefault: true
           reinvocationPolicy: IfNeeded
+          alwaysInjectSelector:
+            - matchLabels:
+                sidecar.istio.io/inject: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: istio-system
@@ -46,5 +49,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true
       - RespectIgnoreDifferences=true
