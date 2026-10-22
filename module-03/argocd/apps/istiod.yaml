@@ -16,19 +16,11 @@ spec:
     helm:
       releaseName: istiod
       valuesObject:
-        global:
-          proxy:
-            autoInject: disabled
         sidecarInjectorWebhook:
-          # Дозволяємо виклик вебхука Istio для неймспейсів кластера (enableNamespacesByDefault: true),
-          # але вимикаємо автоматичну інжекцію (global.proxy.autoInject: disabled -> policy: disabled).
-          # alwaysInjectSelector гарантує інжекцію навіть при policy: disabled для подів,
-          # яким Kyverno додає лейбл sidecar.istio.io/inject: "true" на основі person: student!
-          enableNamespacesByDefault: true
+          # Важливо: reinvocationPolicy=IfNeeded гарантує, що якщо Kyverno мутував под
+          # (додав person: student та sidecar.istio.io/inject: "true") після першого проходу
+          # вебхуків, Kubernetes API-сервер повторно викличе istio-sidecar-injector!
           reinvocationPolicy: IfNeeded
-          alwaysInjectSelector:
-            - matchLabels:
-                sidecar.istio.io/inject: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: istio-system
