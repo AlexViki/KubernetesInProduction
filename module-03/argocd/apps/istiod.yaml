@@ -17,10 +17,20 @@ spec:
       releaseName: istiod
       valuesObject:
         sidecarInjectorWebhook:
-          # Важливо: reinvocationPolicy=IfNeeded гарантує, що якщо Kyverno мутував под
-          # (додав person: student та sidecar.istio.io/inject: "true") після першого проходу
-          # вебхуків, Kubernetes API-сервер повторно викличе istio-sidecar-injector!
+          # Увімкнено перехоплення вебхука для неймспейсів за замовчуванням + reinvocationPolicy=IfNeeded,
+          # але neverInjectSelector блокує інжекцію для всіх подів, окрім тих, яким Kyverno
+          # виставив sidecar.istio.io/inject="true" на основі лейбла person="student".
+          enableNamespacesByDefault: true
           reinvocationPolicy: IfNeeded
+          alwaysInjectSelector:
+            - matchLabels:
+                sidecar.istio.io/inject: "true"
+          neverInjectSelector:
+            - matchExpressions:
+                - key: sidecar.istio.io/inject
+                  operator: NotIn
+                  values:
+                    - "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: istio-system
