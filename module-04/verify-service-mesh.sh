@@ -77,7 +77,7 @@ kubectl run test-mesh-default -n default --image=nginx:alpine --restart=Never >/
 
 STUDENT_PERSON_LBL="$(kubectl get pod test-mesh-student -n student01 -o jsonpath='{.metadata.labels.person}')"
 STUDENT_INJECT_LBL="$(kubectl get pod test-mesh-student -n student01 -o jsonpath='{.metadata.labels.sidecar\.istio\.io/inject}')"
-STUDENT_CONTAINERS="$(kubectl get pod test-mesh-student -n student01 -o jsonpath='{.spec.containers[*].name}')"
+STUDENT_CONTAINERS="$(kubectl get pod test-mesh-student -n student01 -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}')"
 
 assert_eq "Pod у student01 отримав лейбл person=student" "$STUDENT_PERSON_LBL" "student"
 assert_eq "Pod у student01 отримав лейбл sidecar.istio.io/inject=true" "$STUDENT_INJECT_LBL" "true"
@@ -86,17 +86,17 @@ HAS_ISTIO_STUDENT="no"
 [[ "$STUDENT_CONTAINERS" == *"istio-proxy"* ]] && HAS_ISTIO_STUDENT="yes"
 assert_eq "Pod у student01 запущено з контейнером istio-proxy ($STUDENT_CONTAINERS)" "$HAS_ISTIO_STUDENT" "yes"
 
-DIRECT_CONTAINERS="$(kubectl get pod test-mesh-direct-label -n default -o jsonpath='{.spec.containers[*].name}')"
+DIRECT_CONTAINERS="$(kubectl get pod test-mesh-direct-label -n default -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}')"
 HAS_ISTIO_DIRECT="no"
 [[ "$DIRECT_CONTAINERS" == *"istio-proxy"* ]] && HAS_ISTIO_DIRECT="yes"
 assert_eq "Pod з явним person=student у default має istio-proxy ($DIRECT_CONTAINERS)" "$HAS_ISTIO_DIRECT" "yes"
 
-MENTOR_CONTAINERS="$(kubectl get pod test-mesh-mentor -n mentor -o jsonpath='{.spec.containers[*].name}')"
+MENTOR_CONTAINERS="$(kubectl get pod test-mesh-mentor -n mentor -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}')"
 HAS_ISTIO_MENTOR="no"
 [[ "$MENTOR_CONTAINERS" == *"istio-proxy"* ]] && HAS_ISTIO_MENTOR="yes"
 assert_eq "Pod у mentor (person=mentor) НЕ має istio-proxy ($MENTOR_CONTAINERS)" "$HAS_ISTIO_MENTOR" "no"
 
-DEFAULT_CONTAINERS="$(kubectl get pod test-mesh-default -n default -o jsonpath='{.spec.containers[*].name}')"
+DEFAULT_CONTAINERS="$(kubectl get pod test-mesh-default -n default -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}')"
 HAS_ISTIO_DEFAULT="no"
 [[ "$DEFAULT_CONTAINERS" == *"istio-proxy"* ]] && HAS_ISTIO_DEFAULT="yes"
 assert_eq "Pod у default (без person=student) НЕ має istio-proxy ($DEFAULT_CONTAINERS)" "$HAS_ISTIO_DEFAULT" "no"
