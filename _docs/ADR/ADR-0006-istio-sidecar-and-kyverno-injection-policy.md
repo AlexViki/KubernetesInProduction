@@ -27,15 +27,16 @@
 
 ## Decision
 Ми обрали **Option A**:
-1. Розгорнули Istio `v1.30.6` у режимі Sidecar (`profile: default`) через два ArgoCD додатки: `istio-base` та `istiod` (з `sidecarInjectorWebhook.reinvocationPolicy: IfNeeded`).
+1. Розгорнули Istio `v1.30.6` у режимі Sidecar через два ArgoCD додатки: `istio-base` та `istiod` (з `sidecarInjectorWebhook.reinvocationPolicy: IfNeeded`).
 2. Додали до єдиного Helm-чарту `lab-tenants` (`v0.3.0`) нову параметризовану політику Kyverno `inject-istio-sidecar-for-students` (`templates/kyverno-mutate-istio-sidecar.yaml`), яка знаходить усі поди з `person: student` та додає їм лейбл `sidecar.istio.io/inject: "true"`.
+3. Додали у чарт `lab-tenants` конфігурацію `MutatingWebhookConfiguration` з іменем `z-istio-sidecar-injector` (`templates/istio-post-kyverno-webhook.yaml`), яка гарантує виклик інжектора Istio **після** завершення двоступеневої мутації Kyverno.
 
 ## Rationale
-- **Делегування генерації контейнера нативному інжектору `istiod`:** Kyverno виступає як Policy Decision Point (вирішує, *яким* подам потрібен sidecar на основі бізнес-лейбла `person: student`), а `istiod` виступає як механізм інжекції, що гарантує 100% валідну конфігурацію `istio-proxy` та `istio-init`.
-- **Ланцюжок мутацій за один запит `CREATE Pod`:**
-  1. Правило Kyverno `add-person-label` додає `person: student` подам у студентських неймспейсах.
-  2. Правило Kyverno `inject-istio-sidecar-for-students` додає `sidecar.istio.io/inject: "true"` подам із `person: student` (як тим, що отримали цей лейбл на попередньому кроці, так і тим, на яких його вказали явно в будь-якому іншому неймспейсі).
-  3. Завдяки `reinvocationPolicy: IfNeeded` вебхук `object.sidecar-injector.istio.io` бачить `sidecar.istio.io/inject: "true"` і додає sidecar-контейнер `istio-proxy`.
+- **Делегування генерації контейнера нативному інжектору `istiod`:** Kyverno виступає як Policy Decision Point (вирішує, *яким* подам потрібен sidecar на основі бізнес-лейбла `person: student`), а `istiod` виступає як механізм інжекції, що гарантує 100% валідну конфігурацію `istio-proxy` та `istio-init` (у Istio 1.30+ використовується сучасний Kubernetes Native Sidecar — `initContainer` з `restartPolicy: Always`).
+- **Вирішення алфавітного порядку MutatingWebhooks у Kubernetes:**
+  - Kubernetes API-сервер викликає `MutatingWebhookConfiguration` суворо в алфавітному порядку за іменем.
+  - Стандартний вебхук `istio-sidecar-injector` (`i`) виконується **до** `kyverno-resource-mutating-webhook-cfg` (`k`). Крім того, Kubernetes обмежує `reinvocationPolicy: IfNeeded` максимум одним повторним викликом на кожен вебхук за час Admission. Коли под створюється у `student01` без лейблів, на першому проході Kyverno додає `person: student`, а на реінвокації додає `sidecar.istio.io/inject: "true"`, тому вебхук із префіксом `z-` (`z-istio-sidecar-injector`, де `"z" > "k"`) гарантовано бачить обидва згенеровані лейбли і виконує інжекцію `istio-proxy` за один запит `CREATE Pod`.
+  - Контролер `istiod` (webhook patcher) автоматично підставляє актуальний `caBundle` у `z-istio-sidecar-injector` завдяки лейблу `istio.io/rev: "default"`.
 
 ## Consequences
 * **Positive:**
