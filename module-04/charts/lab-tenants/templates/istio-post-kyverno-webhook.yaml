@@ -1,0 +1,47 @@
+{{- if and .Values.kyvernoPolicies.enabled .Values.kyvernoPolicies.injectIstioSidecar.enabled }}
+# Оскільки Kubernetes API-сервер викликає MutatingWebhookConfigurations в алфавітному порядку,
+# 'istio-sidecar-injector' ("i" < "k") виконується ДО 'kyverno-resource-mutating-webhook-cfg'.
+# Додатковий MutatingWebhookConfiguration 'z-istio-sidecar-injector' ("z" > "k") гарантує,
+# що інжектор Istio викликається ПІСЛЯ того, як Kyverno виконає всі ланцюжки мутацій
+# (add-person-label -> inject-istio-sidecar-for-students).
+# Контролер istiod (webhook patcher) автоматично підтримує caBundle за лейблом istio.io/rev: "default".
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: z-istio-sidecar-injector
+  labels:
+    istio.io/rev: "default"
+    app: sidecar-injector
+    {{- include "lab-tenants.labels" . | nindent 4 }}
+webhooks:
+  - name: object.sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/inject"
+        port: 443
+    sideEffects: None
+    rules:
+      - operations: ["CREATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    reinvocationPolicy: IfNeeded
+    admissionReviewVersions: ["v1"]
+    namespaceSelector:
+      matchExpressions:
+        - key: istio-injection
+          operator: DoesNotExist
+        - key: istio.io/rev
+          operator: DoesNotExist
+    objectSelector:
+      matchExpressions:
+        - key: {{ .Values.kyvernoPolicies.injectIstioSidecar.sidecarInjectLabelKey }}
+          operator: In
+          values:
+            - {{ .Values.kyvernoPolicies.injectIstioSidecar.sidecarInjectLabelValue | quote }}
+        - key: istio.io/rev
+          operator: DoesNotExist
+{{- end }}

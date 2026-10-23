@@ -81,11 +81,12 @@ assert_eq "Параметризація labelKey=ownerRole через --set пр
 
 echo ""
 echo "--- 4. Перевірка розгорнутих політик у кластері ---"
+EXPECTED_CHART="lab-tenants-$(grep '^version:' "$SCRIPT_DIR/charts/lab-tenants/Chart.yaml" | awk '{print $2}')"
 for pol in generate-tenant-rbac require-ro-rootfs add-person-label; do
   POL_READY="$(kubectl get clusterpolicy "$pol" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")"
   POL_CHART="$(kubectl get clusterpolicy "$pol" -o jsonpath='{.metadata.labels.helm\.sh/chart}' 2>/dev/null || echo "")"
   assert_eq "ClusterPolicy '$pol' має стан Ready=True" "$POL_READY" "True"
-  assert_eq "ClusterPolicy '$pol' керується чартом lab-tenants-0.2.0" "$POL_CHART" "lab-tenants-0.2.0"
+  assert_eq "ClusterPolicy '$pol' керується чартом $EXPECTED_CHART" "$POL_CHART" "$EXPECTED_CHART"
 done
 
 echo ""
