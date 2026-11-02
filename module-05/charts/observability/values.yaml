@@ -1,0 +1,15 @@
+namespace: monitoring
+
+datasources:
+  victoriaMetricsUid: VictoriaMetrics
+  lokiUid: loki
+
+studentNamespacesRegex: "student.*"
+
+alerting:
+  enabled: true
+  evaluationInterval: 1m
+  forDuration: 0s
+  lookbackWindow: 5m
+  policyName: require-ro-rootfs
+  ruleName: validate-readOnlyRootFilesystem

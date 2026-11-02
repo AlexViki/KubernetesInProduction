@@ -1,0 +1,111 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vm-k8s-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://victoriametrics.github.io/helm-charts/
+    chart: victoria-metrics-k8s-stack
+    targetRevision: 0.97.1
+    helm:
+      releaseName: vmstack
+      skipCrds: true
+      valuesObject:
+        victoria-metrics-operator:
+          crds:
+            plain: false
+            cleanup:
+              enabled: false
+        # У k3s control-plane компоненти працюють в єдиному процесі без окремих подів
+        kubeEtcd:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        vmsingle:
+          spec:
+            retentionPeriod: "1d"
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+        vmagent:
+          spec:
+            resources:
+              requests:
+                cpu: 25m
+                memory: 64Mi
+              limits:
+                cpu: 300m
+                memory: 256Mi
+        vmalert:
+          spec:
+            resources:
+              requests:
+                cpu: 20m
+                memory: 32Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+        alertmanager:
+          spec:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
+        grafana:
+          enabled: true
+          adminPassword: admin
+          sidecar:
+            datasources:
+              enabled: true
+              label: grafana_datasource
+              labelValue: "1"
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+            alerts:
+              enabled: true
+              label: grafana_alert
+              labelValue: "1"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: vmstack-victoria-metrics-operator-validation
+      jqPathExpressions:
+        - .data
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

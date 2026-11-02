@@ -1,0 +1,13 @@
+apiVersion: v2
+name: observability-config
+description: GitOps Helm chart for Module 05 Grafana Dashboards (Student Node Load & Kyverno ReadOnlyRootFS Audit Logs) and Alerting Rules
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - observability
+  - victoriametrics
+  - loki
+  - grafana
+  - kyverno
+  - alerting

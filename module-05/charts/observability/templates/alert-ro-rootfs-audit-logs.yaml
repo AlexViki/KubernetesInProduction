@@ -1,0 +1,130 @@
+{{- if .Values.alerting.enabled }}
+# ==============================================================================
+# 1. Grafana Unified Alerting Rule (Loki LogQL Query)
+#    Спрацьовує при знаходженні в логах сповіщення про непроходження аудиту
+#    readonly root filesystem (require-ro-rootfs / readOnlyRootFilesystem)
+# ==============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alert-ro-rootfs-audit
+  namespace: {{ .Values.namespace }}
+  labels:
+    grafana_alert: "1"
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  ro-rootfs-audit-alert.yaml: |-
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: kyverno-readonly-rootfs-audit
+        folder: Module 05 Alerts
+        interval: {{ .Values.alerting.evaluationInterval }}
+        rules:
+          - uid: ro-rootfs-audit-log-alert
+            title: ReadOnlyRootFilesystem Audit Violation in Pod Logs
+            condition: C
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: {{ .Values.datasources.lokiUid }}
+                model:
+                  expr: 'sum(count_over_time({namespace="kyverno"} |= "{{ .Values.alerting.policyName }}" |= "readOnlyRootFilesystem" |= "validation error" [{{ .Values.alerting.lookbackWindow }}]))'
+                  instant: false
+                  range: true
+                  refId: A
+              - refId: B
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                          - B
+                      reducer:
+                        params: []
+                        type: max
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  reducer: max
+                  refId: B
+                  type: reduce
+              - refId: C
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  conditions:
+                    - evaluator:
+                        params:
+                          - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                          - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: B
+                  refId: C
+                  type: threshold
+            noDataState: OK
+            execErrState: Error
+            for: {{ .Values.alerting.forDuration }}
+            annotations:
+              summary: "Виявлено непроходження аудиту Read-Only Root Filesystem у логах подів ({{ .Values.alerting.policyName }})"
+              description: "У логах Kyverno знайдено запис про створення або оновлення поду, який не пройшов аудит securityContext.readOnlyRootFilesystem: true."
+              __dashboardUid__: kyverno-ro-rootfs-audit-logs
+              __panelId__: "5"
+            labels:
+              severity: warning
+              policy: {{ .Values.alerting.policyName }}
+              module: module-05
+---
+# ==============================================================================
+# 2. VictoriaMetrics VMRule (додатковий рівень алертингу у VMAlert / Alertmanager)
+# ==============================================================================
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: kyverno-ro-rootfs-audit-violation
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: victoria-metrics-k8s-stack
+    release: vmstack
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  groups:
+    - name: kyverno.audit.rules
+      interval: 30s
+      rules:
+        - alert: KyvernoReadOnlyRootFilesystemAuditFailed
+          expr: increase(kyverno_policy_results_total{policy_name="{{ .Values.alerting.policyName }}", rule_result="fail"}[5m]) > 0
+          for: 0s
+          labels:
+            severity: warning
+            policy: {{ .Values.alerting.policyName }}
+            module: module-05
+          annotations:
+            summary: "Непроходження аудиту readonly root filesystem (політика {{ .Values.alerting.policyName }})"
+            description: "Зафіксовано непроходження аудиту securityContext.readOnlyRootFilesystem: true у неймспейсі {{`{{ $labels.resource_namespace }}`}}."
+{{- end }}

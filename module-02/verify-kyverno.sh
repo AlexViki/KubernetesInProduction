@@ -22,6 +22,7 @@ assert_eq() {
 cleanup() {
   kubectl delete pod test-pod-student -n student01 --ignore-not-found=true >/dev/null 2>&1 || true
   kubectl delete pod test-pod-ro -n student01 --ignore-not-found=true >/dev/null 2>&1 || true
+  kubectl delete pod test-pod-ro -n mentor --ignore-not-found=true >/dev/null 2>&1 || true
   kubectl delete pod test-pod-mentor -n mentor --ignore-not-found=true >/dev/null 2>&1 || true
   kubectl delete pod test-pod-default -n default --ignore-not-found=true >/dev/null 2>&1 || true
   kubectl delete ns student99 --ignore-not-found=true >/dev/null 2>&1 || true
@@ -50,8 +51,8 @@ assert_eq "Pod у default НЕ має лейбла person" "$LABEL_DEFAULT" ""
 
 echo ""
 echo "--- 2. Тест Validate Policy (require-ro-rootfs): Audit режим ---"
-# Тестовий под із readOnlyRootFilesystem: true
-cat <<EOF | kubectl apply -n student01 -f - >/dev/null
+# Тестовий под із readOnlyRootFilesystem: true (у неймспейсі mentor, де немає istio-init)
+cat <<EOF | kubectl apply -n mentor -f - >/dev/null
 apiVersion: v1
 kind: Pod
 metadata:
@@ -68,12 +69,13 @@ EOF
 POD_EXISTS="$(kubectl get pod test-pod-student -n student01 -o jsonpath='{.metadata.name}')"
 assert_eq "Pod без readOnlyRootFilesystem не заблоковано (Audit mode)" "$POD_EXISTS" "test-pod-student"
 
-echo "    Очікування генерації PolicyReport у student01..."
+echo "    Очікування генерації PolicyReport у student01 та mentor..."
 REPORT_FAIL=""
 REPORT_PASS=""
 for _ in {1..20}; do
   REPORT_FAIL="$(kubectl get policyreport -n student01 -o jsonpath='{.items[*].results[?(@.policy=="require-ro-rootfs")].result}' 2>/dev/null || true)"
-  if [[ "$REPORT_FAIL" == *"fail"* && "$REPORT_FAIL" == *"pass"* ]]; then
+  REPORT_PASS="$(kubectl get policyreport -n mentor -o jsonpath='{.items[*].results[?(@.policy=="require-ro-rootfs")].result}' 2>/dev/null || true)"
+  if [[ "$REPORT_FAIL" == *"fail"* && "$REPORT_PASS" == *"pass"* ]]; then
     break
   fi
   sleep 2
@@ -82,7 +84,7 @@ done
 HAS_FAIL="no"
 HAS_PASS="no"
 [[ "$REPORT_FAIL" == *"fail"* ]] && HAS_FAIL="yes"
-[[ "$REPORT_FAIL" == *"pass"* ]] && HAS_PASS="yes"
+[[ "$REPORT_PASS" == *"pass"* ]] && HAS_PASS="yes"
 assert_eq "PolicyReport фіксує 'fail' для test-pod-student (без RO rootfs)" "$HAS_FAIL" "yes"
 assert_eq "PolicyReport фіксує 'pass' для test-pod-ro (з RO rootfs)" "$HAS_PASS" "yes"
 

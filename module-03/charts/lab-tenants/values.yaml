@@ -46,13 +46,15 @@ kyvernoPolicies:
     failureAction: Audit        # Можливі значення: Audit або Enforce
     background: true
     severity: medium
-    checkInitContainers: true
+    checkInitContainers: false
     checkEphemeralContainers: true
     message: "Коренева файлова система контейнера має бути в режимі тільки для читання (securityContext.readOnlyRootFilesystem: true)."
     excludeNamespaces:
       - kube-system
       - kyverno
       - argocd
+      - istio-system
+      - monitoring
 
   # 3.3. Mutate Policy: автоматичне додавання лейбла 'person' залежно від ролі неймспейсу
   mutatePersonLabel:
@@ -67,3 +69,13 @@ kyvernoPolicies:
       - name: add-person-mentor
         namespaceRole: mentor
         labelValue: mentor
+
+  # 3.4. Mutate Policy (Module 04): запуск усіх подів із лейблом person=student з istio-sidecar контейнером
+  injectIstioSidecar:
+    enabled: true
+    name: inject-istio-sidecar-for-students
+    background: false
+    matchLabelKey: person
+    matchLabelValue: student
+    sidecarInjectLabelKey: sidecar.istio.io/inject
+    sidecarInjectLabelValue: "true"
