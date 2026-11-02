@@ -11,7 +11,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/AlexViki/KubernetesInProduction.git
-    targetRevision: feat/module-04-service-mesh
+    targetRevision: feat/module-05-observability
     path: module-04/charts/lab-tenants
     helm:
       releaseName: lab-tenants

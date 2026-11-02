@@ -46,7 +46,7 @@ kyvernoPolicies:
     failureAction: Audit        # Можливі значення: Audit або Enforce
     background: true
     severity: medium
-    checkInitContainers: true
+    checkInitContainers: false
     checkEphemeralContainers: true
     message: "Коренева файлова система контейнера має бути в режимі тільки для читання (securityContext.readOnlyRootFilesystem: true)."
     excludeNamespaces:
@@ -54,6 +54,7 @@ kyvernoPolicies:
       - kyverno
       - argocd
       - istio-system
+      - monitoring
 
   # 3.3. Mutate Policy: автоматичне додавання лейбла 'person' залежно від ролі неймспейсу
   mutatePersonLabel:
