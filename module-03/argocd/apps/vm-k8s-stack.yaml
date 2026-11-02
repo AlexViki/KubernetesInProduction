@@ -15,7 +15,13 @@ spec:
     targetRevision: 0.97.1
     helm:
       releaseName: vmstack
+      skipCrds: true
       valuesObject:
+        victoria-metrics-operator:
+          crds:
+            plain: false
+            cleanup:
+              enabled: false
         # У k3s control-plane компоненти працюють в єдиному процесі без окремих подів
         kubeEtcd:
           enabled: false
