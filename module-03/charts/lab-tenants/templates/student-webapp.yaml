@@ -1,0 +1,112 @@
+{{- if .Values.studentWebApp.enabled }}
+{{- $app := .Values.studentWebApp }}
+{{- range $student := .Values.students }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $app.name }}
+  namespace: {{ $student.name }}
+  labels:
+    app: {{ $app.name }}
+    student: {{ $student.name }}
+    {{- include "lab-tenants.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ $app.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $app.name }}
+      student: {{ $student.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $app.name }}
+        student: {{ $student.name }}
+    spec:
+      containers:
+        - name: web
+          image: {{ $app.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: {{ $app.port }}
+              protocol: TCP
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cat <<EOF > /tmp/index.html
+              <!DOCTYPE html>
+              <html lang="uk">
+              <head>
+                <meta charset="UTF-8">
+                <title>Student WebApp - ${POD_NAMESPACE}</title>
+                <style>
+                  body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 28px 36px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); min-width: 380px; }
+                  h2 { margin-top: 0; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 12px; }
+                  .row { margin: 12px 0; font-size: 16px; }
+                  .label { color: #94a3b8; font-weight: 600; display: inline-block; width: 130px; }
+                  .val { color: #22c55e; font-family: monospace; font-size: 16px; font-weight: bold; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <h2>🚀 Student Web Application</h2>
+                  <div class="row"><span class="label">Namespace:</span> <span class="val">${POD_NAMESPACE}</span></div>
+                  <div class="row"><span class="label">Pod Name:</span> <span class="val">${POD_NAME}</span></div>
+                  <div class="row"><span class="label">Pod IP:</span> <span class="val">${POD_IP}</span></div>
+                  <div class="row"><span class="label">Node Name:</span> <span class="val">${NODE_NAME}</span></div>
+                </div>
+              </body>
+              </html>
+              EOF
+              exec httpd -f -p {{ $app.port }} -h /tmp
+          securityContext:
+            readOnlyRootFilesystem: {{ $app.readOnlyRootFilesystem }}
+          resources:
+            {{- toYaml $app.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp-webroot
+              mountPath: /tmp
+      volumes:
+        - name: tmp-webroot
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $app.name }}
+  namespace: {{ $student.name }}
+  labels:
+    app: {{ $app.name }}
+    student: {{ $student.name }}
+    {{- include "lab-tenants.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ $app.name }}
+    student: {{ $student.name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+{{- end }}
+{{- end }}
