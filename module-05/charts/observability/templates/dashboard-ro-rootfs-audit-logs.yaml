@@ -1,0 +1,231 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-ro-rootfs-audit-logs
+  namespace: {{ .Values.namespace }}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  kyverno-ro-rootfs-audit-logs.json: |-
+    {
+      "annotations": {
+        "list": []
+      },
+      "description": "Дашборд та моніторинг логів подів на непроходження аудиту Read-Only Root Filesystem (require-ro-rootfs)",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "{{ .Values.datasources.lokiUid }}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["sum"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "title": "Сповіщення в логах про непроходження RO RootFS аудиту (за обраний час)",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "sum(count_over_time({namespace=\"kyverno\"} |= \"{{ .Values.alerting.policyName }}\" |= \"readOnlyRootFilesystem\" |= \"validation error\" [$__range]))",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "{{ .Values.datasources.lokiUid }}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 1 },
+                  { "color": "red", "value": 3 }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+          "id": 2,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "title": "Порушення RO RootFS у логах за останні 5 хв (Вікно алярму)",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "sum(count_over_time({namespace=\"kyverno\"} |= \"{{ .Values.alerting.policyName }}\" |= \"readOnlyRootFilesystem\" |= \"validation error\" [{{ .Values.alerting.lookbackWindow }}]))",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "{{ .Values.datasources.victoriaMetricsUid }}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "title": "Метрика Kyverno: Усього непроходжень require-ro-rootfs (fail)",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "sum(kyverno_policy_results_total{policy_name=\"{{ .Values.alerting.policyName }}\", rule_result=\"fail\"}) or vector(0)",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "{{ .Values.datasources.lokiUid }}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "drawStyle": "bars",
+                "fillOpacity": 80,
+                "lineWidth": 1,
+                "stacking": { "group": "A", "mode": "normal" }
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 7, "w": 24, "x": 0, "y": 6 },
+          "id": 4,
+          "options": {
+            "legend": {
+              "calcs": ["sum"],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "title": "Динаміка сповіщень у логах про непроходження аудиту Read-Only Root Filesystem",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by (pod) (count_over_time({namespace=\"kyverno\"} |= \"{{ .Values.alerting.policyName }}\" |= \"readOnlyRootFilesystem\" |= \"validation error\" [$__interval]))",
+              "legendFormat": "Kyverno Pod: {{`{{pod}}`}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "{{ .Values.datasources.lokiUid }}"
+          },
+          "gridPos": { "h": 11, "w": 24, "x": 0, "y": 13 },
+          "id": 5,
+          "options": {
+            "dedupStrategy": "none",
+            "enableLogDetails": true,
+            "prettifyLogMessage": false,
+            "showCommonLabels": false,
+            "showLabels": true,
+            "showTime": true,
+            "sortOrder": "Descending",
+            "wrapLogMessage": true
+          },
+          "title": "Журнал логів (Loki): Сповіщення про непроходження аудиту Read-Only Root Filesystem",
+          "type": "logs",
+          "targets": [
+            {
+              "expr": "{namespace=\"kyverno\"} |= \"{{ .Values.alerting.policyName }}\" |= \"readOnlyRootFilesystem\" |= \"validation error\"",
+              "refId": "A"
+            }
+          ]
+        }
+      ],
+      "refresh": "10s",
+      "schemaVersion": 39,
+      "tags": ["module-05", "kyverno", "audit", "readonly-rootfs", "loki"],
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "title": "Kyverno Security Audit - Read-Only RootFS Violations",
+      "uid": "kyverno-ro-rootfs-audit-logs",
+      "version": 1
+    }
