@@ -88,6 +88,11 @@ spec:
     server: https://kubernetes.default.svc
     namespace: monitoring
   ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: vmstack-victoria-metrics-operator-validation
+      jqPathExpressions:
+        - .data
     - group: admissionregistration.k8s.io
       kind: ValidatingWebhookConfiguration
       jqPathExpressions:
